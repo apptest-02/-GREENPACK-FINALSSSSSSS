@@ -20,6 +20,9 @@ from app.config import get_settings
 from app.database import init_db, check_db_integrity, AsyncSessionLocal, get_db
 from app.services.auth_service import create_access_token, hash_password, verify_password
 
+# Import all routers
+from app.routers import auth, users, jobs, templates, scanners, batch, reports, settings_router, multi_up, prepress
+
 log = logging.getLogger(__name__)
 settings = get_settings()
 
@@ -54,11 +57,9 @@ async def ensure_admin_user():
     from sqlalchemy import text
     
     async with AsyncSessionLocal() as db:
-        # Disable foreign key constraints for this session
         await db.execute(text("PRAGMA foreign_keys = OFF"))
         
         try:
-            # Check if admin exists
             result = await db.execute(select(User).where(User.email == "admin@example.com"))
             admin = result.scalar_one_or_none()
             
@@ -81,7 +82,6 @@ async def ensure_admin_user():
             else:
                 log.info("Admin user already exists.")
         finally:
-            # Re-enable foreign key constraints
             await db.execute(text("PRAGMA foreign_keys = ON"))
 
 # ── Startup/Shutdown ───────────────────────────────────────────────────────────
@@ -107,7 +107,7 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# CORS - Allow your Netlify frontend
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -128,7 +128,6 @@ class LoginRequest(BaseModel):
 # ── Authentication Endpoint ────────────────────────────────────────────────────
 @app.post("/api/v1/auth/login")
 async def login(login_data: LoginRequest, db: AsyncSession = Depends(get_db)):
-    """Login endpoint - returns JWT token"""
     from app.models.base import User
     
     result = await db.execute(select(User).where(User.email == login_data.email))
@@ -161,28 +160,27 @@ async def health():
 async def dashboard_stats():
     return {"today_total": 0, "today_pass": 0, "today_fail": 0, "pass_rate": 0, "avg_score": 0}
 
-@app.get("/api/v1/jobs")
-async def get_jobs():
-    return []
-
-@app.get("/api/v1/templates")
-async def get_templates():
-    return []
-
-@app.get("/api/v1/scanners")
-async def get_scanners():
-    return []
+# ── Include All Routers ────────────────────────────────────────────────────────
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
+app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
+app.include_router(jobs.router, prefix="/api/v1/jobs", tags=["Jobs"])
+app.include_router(multi_up.router, prefix="/api/v1/jobs", tags=["Multi-Up"])
+app.include_router(prepress.router, prefix="/api/v1/prepress", tags=["Prepress"])
+app.include_router(templates.router, prefix="/api/v1/templates", tags=["Templates"])
+app.include_router(scanners.router, prefix="/api/v1/scanners", tags=["Scanners"])
+app.include_router(batch.router, prefix="/api/v1/batch", tags=["Batch"])
+app.include_router(reports.router, prefix="/api/v1/reports", tags=["Reports"])
+app.include_router(settings_router.router, prefix="/api/v1/settings", tags=["Settings"])
 
 # ── Database Fix Endpoint ──────────────────────────────────────────────────────
 @app.get("/fix-db")
 async def fix_db():
-    """Emergency endpoint to fix database and create admin user"""
     import sqlite3
+    from app.services.auth_service import hash_password
     
     conn = sqlite3.connect('./data/greenpack.db')
     cursor = conn.cursor()
     
-    # Ensure users table exists
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id VARCHAR(36) PRIMARY KEY,
@@ -196,11 +194,8 @@ async def fix_db():
         )
     """)
     
-    # Remove any existing problematic admin users
-    cursor.execute("DELETE FROM users WHERE email = 'admin@greenpackpro.local'")
-    cursor.execute("DELETE FROM users WHERE email = 'admin@example.com'")
+    cursor.execute("DELETE FROM users WHERE email IN ('admin@greenpackpro.local', 'admin@example.com')")
     
-    # Create fresh admin user
     user_id = str(uuid.uuid4())
     company_id = str(uuid.uuid4())
     password_hash = hash_password("Admin123!")
@@ -211,8 +206,6 @@ async def fix_db():
     )
     
     conn.commit()
-    
-    # Verify
     cursor.execute("SELECT email, role FROM users")
     users = cursor.fetchall()
     conn.close()
