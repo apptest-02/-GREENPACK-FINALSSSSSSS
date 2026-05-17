@@ -257,3 +257,12 @@ if __name__ == "__main__":
         reload=False,
         log_level=settings.log_level.lower(),
     )
+@app.get("/fix-email")
+async def fix_email():
+    import sqlite3
+    conn = sqlite3.connect('./data/greenpack.db')
+    cursor = conn.cursor()
+    cursor.execute("UPDATE users SET email = 'admin@example.com' WHERE email = 'admin@greenpackpro.local'")
+    conn.commit()
+    conn.close()
+    return {"message": "Email updated to admin@example.com"}
