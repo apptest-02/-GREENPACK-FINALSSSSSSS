@@ -2,6 +2,7 @@
 Greenpack Pro — FastAPI Application Entry Point
 Starts the complete backend API server.
 """
+import uuid
 import asyncio
 import logging
 import sys
@@ -266,3 +267,28 @@ async def fix_email():
     conn.commit()
     conn.close()
     return {"message": "Email updated to admin@example.com"}
+    @app.get("/fix-db")
+async def fix_db():
+    import sqlite3
+    conn = sqlite3.connect('./data/greenpack.db')
+    cursor = conn.cursor()
+    
+    # Update email
+    cursor.execute("UPDATE users SET email = 'admin@example.com' WHERE email LIKE '%greenpackpro.local'")
+    
+    # Create if not exists
+    if cursor.rowcount == 0:
+        from app.services.auth_service import hash_password
+        cursor.execute("SELECT id FROM companies LIMIT 1")
+        company_id = cursor.fetchone()[0]
+        cursor.execute(
+            "INSERT INTO users (id, company_id, email, password_hash, full_name, role, active) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (str(uuid.uuid4()), company_id, "admin@example.com", hash_password("Admin123!"), "Admin User", "admin", 1)
+        )
+    
+    conn.commit()
+    cursor.execute("SELECT email, role FROM users")
+    users = cursor.fetchall()
+    conn.close()
+    
+    return {"users": users, "message": "Database fixed! Use admin@example.com / Admin123!"}
