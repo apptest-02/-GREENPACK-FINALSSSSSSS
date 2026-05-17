@@ -107,10 +107,13 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins (temporary)
+    allow_origins=[
+        "https://green-pack-pro.netlify.app",  # <-- ADD YOUR NETLIFY URL
+        "http://localhost:5173",
+        "http://localhost:3000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
