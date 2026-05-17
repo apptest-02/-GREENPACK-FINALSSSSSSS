@@ -632,7 +632,7 @@ export function ResultPage() {
     enabled: job?.status === 'completed',
   });
 
-  const API_BASE = 'http://localhost:18080';
+  const API_BASE = 'https://greenpack-backend.onrender.com';
 
   async function downloadReport() {
     try {
@@ -1101,7 +1101,7 @@ export function TemplatesPage() {
               <div key={t.id} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition">
                 <div className="h-32 bg-gradient-to-br from-[#F0F6FF] to-[#E8EEF4] flex items-center justify-center">
                   {t.thumbnail_path ? (
-                    <img src={`http://localhost:18080/reports/${t.thumbnail_path.split('/').pop()}`}
+                    <img src={`https://greenpack-backend.onrender.com/reports/${t.thumbnail_path.split('/').pop()}`}
                       alt="Template thumbnail" className="h-full w-full object-contain" />
                   ) : (
                     <FileText size={40} className="text-gray-300" />
