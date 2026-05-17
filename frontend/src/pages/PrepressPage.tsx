@@ -52,7 +52,7 @@ export function PantoneIdentificationPage() {
     identifyMutation.mutate(fd);
   }
 
-  const API_BASE = (window as any).electronAPI?.apiUrl || 'http://localhost:18080';
+  const API_BASE = (window as any).electronAPI?.apiUrl || 'https://greenpack-backend.onrender.com';
 
   return (
     <div>
