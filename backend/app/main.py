@@ -215,7 +215,19 @@ async def fix_db():
 reports_dir = Path(settings.reports_dir)
 reports_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/reports", StaticFiles(directory=str(reports_dir)), name="reports")
-
+@app.get("/fix-audit-logs")
+async def fix_audit_logs():
+    import sqlite3
+    conn = sqlite3.connect('./data/greenpack.db')
+    cursor = conn.cursor()
+    
+    # Drop the problematic table
+    cursor.execute("DROP TABLE IF EXISTS audit_logs")
+    
+    conn.commit()
+    conn.close()
+    
+    return {"message": "audit_logs table dropped. It will be recreated with correct schema on next restart."}
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
