@@ -48,10 +48,10 @@ def setup_logging():
 
 setup_logging()
 
+# ── Helper to ensure admin user exists ─────────────────────────────────────────
 async def ensure_admin_user():
     """Ensure admin user exists in the database"""
     from app.models.base import User
-    from app.models.company import Company  # Import your Company model
     
     async with AsyncSessionLocal() as db:
         # Check if admin exists
@@ -60,32 +60,12 @@ async def ensure_admin_user():
         
         if not admin:
             log.info("Creating default admin user...")
+            # Use a fixed placeholder company ID (you can change this later)
+            placeholder_company_id = "11111111-1111-1111-1111-111111111111"
             
-            # Step 1: Create or get a default company
-            default_company_id = "11111111-1111-1111-1111-111111111111"  # Fixed UUID
-            
-            # Check if company exists
-            company_result = await db.execute(
-                select(Company).where(Company.id == default_company_id)
-            )
-            company = company_result.scalar_one_or_none()
-            
-            if not company:
-                # Create the default company
-                company = Company(
-                    id=default_company_id,
-                    name="Greenpack Pro Organization",
-                    # Add any other required fields for your Company model
-                    # For example: created_at, updated_at, etc.
-                )
-                db.add(company)
-                await db.commit()
-                log.info(f"Created default company with ID: {default_company_id}")
-            
-            # Step 2: Now create admin user with the valid company_id
             admin = User(
                 id=str(uuid.uuid4()),
-                company_id=default_company_id,  # Use the company ID that now exists
+                company_id=placeholder_company_id,  # Use placeholder UUID
                 email="admin@example.com",
                 password_hash=hash_password("Admin123!"),
                 full_name="Admin User",
@@ -95,6 +75,7 @@ async def ensure_admin_user():
             db.add(admin)
             await db.commit()
             log.info("Default admin created: admin@example.com / Admin123!")
+            log.info(f"Using placeholder company_id: {placeholder_company_id}")
         else:
             log.info("Admin user already exists.")
 
