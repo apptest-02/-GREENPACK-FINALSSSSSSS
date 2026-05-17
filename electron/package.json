@@ -1,0 +1,73 @@
+{
+  "name": "greenpack-pro",
+  "version": "1.0.0",
+  "description": "Label Print Inspection & Verification System",
+  "author": "Aura Tech Labs <hello@auratechlabs.com>",
+  "homepage": "https://greenpackpro.com",
+  "private": true,
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "concurrently \"tsc --watch\" \"electron . --dev\"",
+    "build": "tsc",
+    "dist-win": "npm run build && electron-builder --win",
+    "dist-win-portable": "npm run build && electron-builder --win portable"
+  },
+  "dependencies": {
+    "electron-store": "^8.2.0",
+    "electron-updater": "^6.1.8"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "electron": "^30.0.8",
+    "electron-builder": "^24.13.3",
+    "typescript": "^5.4.5"
+  },
+  "build": {
+    "appId": "com.auratechlabs.greenpackpro",
+    "productName": "Greenpack Pro",
+    "copyright": "© 2025 Aura Tech Labs",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**/*",
+      "assets/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../backend/dist/greenpack_engine",
+        "to": "engine/greenpack_engine",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "../frontend/dist",
+        "to": "frontend",
+        "filter": ["**/*"]
+      }
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] }
+      ],
+      "icon": "assets/greenpack.ico",
+      "requestedExecutionLevel": "requireAdministrator",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Greenpack Pro",
+      "installerIcon": "assets/greenpack.ico",
+      "uninstallerIcon": "assets/greenpack.ico",
+      "installerHeaderIcon": "assets/greenpack.ico",
+      "differentialPackage": false
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "aura-tech-labs",
+      "repo": "greenpack-pro"
+    }
+  }
+}

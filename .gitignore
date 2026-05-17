@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Backend data (never commit)
+backend/data/
+backend/files/
+backend/reports/
+backend/templates/
+backend/models/
+backend/logs/
+backend/temp/
+backend/backups/
+backend/.env
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Electron
+electron/node_modules/
+electron/dist/
+electron/dist-electron/
+
+# Installer output
+dist/installer/
+deps/
+
+# OS
+.DS_Store
+Thumbs.db
+*.suo
+*.user
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test artifacts
+*.db
+test_greenpack.db
