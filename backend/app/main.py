@@ -144,7 +144,7 @@ async def ensure_default_admin():
         await db.commit()
 
         log.info(
-            "Default admin created: admin@greenpackpro.local / Admin123! "
+            "Default admin created: admin@example.com / Admin123! "
             "(CHANGE THIS PASSWORD IMMEDIATELY)"
         )
 
@@ -162,7 +162,11 @@ app = FastAPI(
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.origins_list,
+    allow_origins=[
+        "https://green-pack-pro.netlify.app",
+        "http://localhost:5173",
+        "http://localhost:3000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -211,14 +215,13 @@ async def health():
 async def dashboard_stats():
     """Dashboard statistics — pass rates, job counts"""
     from app.database import AsyncSessionLocal
-    from app.models.base import InspectionJob, JobStatus
-    from sqlalchemy import select, func, and_
-    from datetime import datetime, timedelta
+    from app.models.base import InspectionJob
+    from sqlalchemy import select, func
+    from datetime import datetime
 
     async with AsyncSessionLocal() as db:
         today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
 
-        # Today's jobs
         result = await db.execute(
             select(
                 func.count(InspectionJob.id).label("total"),
@@ -243,31 +246,7 @@ async def dashboard_stats():
         }
 
 
-# ── Serve static files for reports ────────────────────────────────────────────
-reports_dir = Path(settings.reports_dir)
-reports_dir.mkdir(parents=True, exist_ok=True)
-app.mount("/reports", StaticFiles(directory=str(reports_dir)), name="reports")
-
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(
-        "app.main:app",
-        host=settings.api_host,
-        port=settings.api_port,
-        reload=False,
-        log_level=settings.log_level.lower(),
-    )
-@app.get("/fix-email")
-async def fix_email():
-    import sqlite3
-    conn = sqlite3.connect('./data/greenpack.db')
-    cursor = conn.cursor()
-    cursor.execute("UPDATE users SET email = 'admin@example.com' WHERE email = 'admin@greenpackpro.local'")
-    conn.commit()
-    conn.close()
-    return {"message": "Email updated to admin@example.com"}
-    @app.get("/fix-db")
+@app.get("/fix-db")
 async def fix_db():
     import sqlite3
     conn = sqlite3.connect('./data/greenpack.db')
@@ -292,3 +271,20 @@ async def fix_db():
     conn.close()
     
     return {"users": users, "message": "Database fixed! Use admin@example.com / Admin123!"}
+
+
+# ── Serve static files for reports ────────────────────────────────────────────
+reports_dir = Path(settings.reports_dir)
+reports_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/reports", StaticFiles(directory=str(reports_dir)), name="reports")
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "app.main:app",
+        host=settings.api_host,
+        port=settings.api_port,
+        reload=False,
+        log_level=settings.log_level.lower(),
+    )
