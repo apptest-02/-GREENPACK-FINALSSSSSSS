@@ -48,7 +48,6 @@ def setup_logging():
 
 setup_logging()
 
-# ── Helper to ensure admin user exists ─────────────────────────────────────────
 async def ensure_admin_user():
     """Ensure admin user exists in the database"""
     from app.models.base import User
@@ -60,9 +59,20 @@ async def ensure_admin_user():
         
         if not admin:
             log.info("Creating default admin user...")
+            
+            # Try to find ANY existing company
+            from app.models.base import Company
+            try:
+                company_result = await db.execute(select(Company).limit(1))
+                existing_company = company_result.scalar_one_or_none()
+                company_id = existing_company.id if existing_company else None
+            except (ImportError, AttributeError):
+                # If Company model doesn't exist or can't be imported, use None
+                company_id = None
+            
             admin = User(
                 id=str(uuid.uuid4()),
-                company_id=str(uuid.uuid4()),
+                company_id=company_id,  # Use existing company ID or None
                 email="admin@example.com",
                 password_hash=hash_password("Admin123!"),
                 full_name="Admin User",
