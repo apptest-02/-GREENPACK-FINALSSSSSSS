@@ -134,7 +134,7 @@ async def ensure_default_admin():
         # Create admin user
         admin = User(
             company_id=company.id,
-            email="admin@greenpackpro.local",
+            email="admin@example.com",
             password_hash=hash_password("Admin123!"),
             full_name="System Administrator",
             role="admin",
