@@ -48,36 +48,41 @@ def setup_logging():
 
 setup_logging()
 
-# ── Helper to ensure admin user exists ─────────────────────────────────────────
 async def ensure_admin_user():
     """Ensure admin user exists in the database"""
     from app.models.base import User
+    from sqlalchemy import text
     
     async with AsyncSessionLocal() as db:
-        # Check if admin exists
-        result = await db.execute(select(User).where(User.email == "admin@example.com"))
-        admin = result.scalar_one_or_none()
+        # Disable foreign key constraints for this session
+        await db.execute(text("PRAGMA foreign_keys = OFF"))
         
-        if not admin:
-            log.info("Creating default admin user...")
-            # Use a fixed placeholder company ID (you can change this later)
-            placeholder_company_id = "11111111-1111-1111-1111-111111111111"
+        try:
+            # Check if admin exists
+            result = await db.execute(select(User).where(User.email == "admin@example.com"))
+            admin = result.scalar_one_or_none()
             
-            admin = User(
-                id=str(uuid.uuid4()),
-                company_id=placeholder_company_id,  # Use placeholder UUID
-                email="admin@example.com",
-                password_hash=hash_password("Admin123!"),
-                full_name="Admin User",
-                role="admin",
-                active=True
-            )
-            db.add(admin)
-            await db.commit()
-            log.info("Default admin created: admin@example.com / Admin123!")
-            log.info(f"Using placeholder company_id: {placeholder_company_id}")
-        else:
-            log.info("Admin user already exists.")
+            if not admin:
+                log.info("Creating default admin user...")
+                placeholder_company_id = "11111111-1111-1111-1111-111111111111"
+                
+                admin = User(
+                    id=str(uuid.uuid4()),
+                    company_id=placeholder_company_id,
+                    email="admin@example.com",
+                    password_hash=hash_password("Admin123!"),
+                    full_name="Admin User",
+                    role="admin",
+                    active=True
+                )
+                db.add(admin)
+                await db.commit()
+                log.info("Default admin created: admin@example.com / Admin123!")
+            else:
+                log.info("Admin user already exists.")
+        finally:
+            # Re-enable foreign key constraints
+            await db.execute(text("PRAGMA foreign_keys = ON"))
 
 # ── Startup/Shutdown ───────────────────────────────────────────────────────────
 @asynccontextmanager
