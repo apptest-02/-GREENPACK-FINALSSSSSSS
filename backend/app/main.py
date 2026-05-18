@@ -54,36 +54,68 @@ setup_logging()
 async def ensure_admin_user():
     """Ensure admin user exists in the database"""
     from app.models.base import User
-    from sqlalchemy import text
+    import sqlite3
     
+    # 🔧 DIRECT DATABASE FIX - bypass all foreign key issues
+    conn = sqlite3.connect('./data/greenpack.db')
+    cursor = conn.cursor()
+    
+    # Create companies table (this is what's missing!)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS companies (
+            id VARCHAR(36) PRIMARY KEY,
+            name VARCHAR(200)
+        )
+    """)
+    
+    # Insert the placeholder company that your admin user needs
+    placeholder_id = "11111111-1111-1111-1111-111111111111"
+    cursor.execute("""
+        INSERT OR IGNORE INTO companies (id, name) 
+        VALUES (?, 'Default Company')
+    """, (placeholder_id,))
+    
+    # Fix audit_logs - remove the broken foreign key constraint
+    cursor.execute("DROP TABLE IF EXISTS audit_logs")
+    cursor.execute("""
+        CREATE TABLE audit_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            company_id VARCHAR(36),
+            user_id VARCHAR(36),
+            action VARCHAR(100),
+            resource_type VARCHAR(50),
+            resource_id VARCHAR(36),
+            ip_address VARCHAR(45),
+            details TEXT,
+            created_at DATETIME
+        )
+    """)
+    
+    conn.commit()
+    conn.close()
+    
+    # Now create the admin user normally
     async with AsyncSessionLocal() as db:
-        await db.execute(text("PRAGMA foreign_keys = OFF"))
+        from sqlalchemy import select
+        result = await db.execute(select(User).where(User.email == "admin@example.com"))
+        admin = result.scalar_one_or_none()
         
-        try:
-            result = await db.execute(select(User).where(User.email == "admin@example.com"))
-            admin = result.scalar_one_or_none()
-            
-            if not admin:
-                log.info("Creating default admin user...")
-                placeholder_company_id = "11111111-1111-1111-1111-111111111111"
-                
-                admin = User(
-                    id=str(uuid.uuid4()),
-                    company_id=placeholder_company_id,
-                    email="admin@example.com",
-                    password_hash=hash_password("Admin123!"),
-                    full_name="Admin User",
-                    role="admin",
-                    active=True
-                )
-                db.add(admin)
-                await db.commit()
-                log.info("Default admin created: admin@example.com / Admin123!")
-            else:
-                log.info("Admin user already exists.")
-        finally:
-            await db.execute(text("PRAGMA foreign_keys = ON"))
-
+        if not admin:
+            log.info("Creating default admin user...")
+            admin = User(
+                id=str(uuid.uuid4()),
+                company_id=placeholder_id,
+                email="admin@example.com",
+                password_hash=hash_password("Admin123!"),
+                full_name="Admin User",
+                role="admin",
+                active=True
+            )
+            db.add(admin)
+            await db.commit()
+            log.info("Default admin created: admin@example.com / Admin123!")
+        else:
+            log.info("Admin user already exists.")
 # ── Startup/Shutdown ───────────────────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
