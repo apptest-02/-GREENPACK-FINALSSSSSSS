@@ -3,7 +3,7 @@
 
 import axios, { AxiosError } from 'axios';
 
-const BASE_URL = (window as any).electronAPI?.apiUrl || 'https://greenpack-backend.onrender.com';
+const BASE_URL = (window as any).electronAPI?.apiUrl || 'https://greenpack-finalsssssss-production.up.railway.app';
 export const api = axios.create({
   baseURL: `${BASE_URL}/api/v1`,
   timeout: 120_000, // 120s for OCR processing
