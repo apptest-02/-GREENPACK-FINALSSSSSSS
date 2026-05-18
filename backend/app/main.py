@@ -221,7 +221,82 @@ async def fix_db():
     conn.close()
     
     return {"message": "Database fixed! Use admin@example.com / Admin123!", "users": users}
+@app.get("/fix-audit-logs-foreign-key")
+async def fix_audit_logs_foreign_key():
+    import sqlite3
+    
+    conn = sqlite3.connect('./data/greenpack.db')
+    cursor = conn.cursor()
+    
+    # Drop and recreate audit_logs without foreign key constraint
+    cursor.execute("DROP TABLE IF EXISTS audit_logs")
+    cursor.execute("""
+        CREATE TABLE audit_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            company_id VARCHAR(36),
+            user_id VARCHAR(36),
+            action VARCHAR(100),
+            resource_type VARCHAR(50),
+            resource_id VARCHAR(36),
+            ip_address VARCHAR(45),
+            details TEXT,
+            created_at DATETIME,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+            -- Removed company_id foreign key constraint
+        )
+    """)
+    
+    conn.commit()
+    conn.close()
+    
+    return {"message": "audit_logs table recreated without company_id foreign key"}
 
+# ✅ ALSO ADD THIS COMPREHENSIVE FIX (recommended)
+@app.get("/fix-all-db-issues")
+async def fix_all_db_issues():
+    import sqlite3
+    
+    conn = sqlite3.connect('./data/greenpack.db')
+    cursor = conn.cursor()
+    
+    # 1. Create companies table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS companies (
+            id VARCHAR(36) PRIMARY KEY,
+            name VARCHAR(200),
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    
+    # 2. Insert placeholder company
+    placeholder_id = "11111111-1111-1111-1111-111111111111"
+    cursor.execute(
+        "INSERT OR IGNORE INTO companies (id, name) VALUES (?, ?)",
+        (placeholder_id, "Default Company")
+    )
+    
+    # 3. Fix audit_logs - drop and recreate properly
+    cursor.execute("DROP TABLE IF EXISTS audit_logs")
+    cursor.execute("""
+        CREATE TABLE audit_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            company_id VARCHAR(36),
+            user_id VARCHAR(36),
+            action VARCHAR(100),
+            resource_type VARCHAR(50),
+            resource_id VARCHAR(36),
+            ip_address VARCHAR(45),
+            details TEXT,
+            created_at DATETIME,
+            FOREIGN KEY (company_id) REFERENCES companies(id),
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    """)
+    
+    conn.commit()
+    conn.close()
+    
+    return {"message": "All database issues fixed!"}
 # ── Serve Static Files ─────────────────────────────────────────────────────────
 reports_dir = Path(settings.reports_dir)
 reports_dir.mkdir(parents=True, exist_ok=True)
