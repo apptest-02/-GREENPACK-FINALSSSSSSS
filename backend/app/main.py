@@ -1,136 +1,3 @@
-"""
-Greenpack Pro — FastAPI Application Entry Point
-"""
-import uuid
-import asyncio
-import logging
-import sys
-from contextlib import asynccontextmanager
-from pathlib import Path
-
-from fastapi import FastAPI, Request, Depends, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-
-from app.config import get_settings
-from app.database import init_db, check_db_integrity, AsyncSessionLocal, get_db
-from app.services.auth_service import create_access_token, hash_password, verify_password
-
-# Import all routers
-from app.routers import auth, users, jobs, templates, scanners, batch, reports, settings_router, multi_up, prepress
-
-log = logging.getLogger(__name__)
-settings = get_settings()
-
-# ── Configure Logging ──────────────────────────────────────────────────────────
-def setup_logging():
-    log_dir = Path(settings.log_file).parent
-    log_dir.mkdir(parents=True, exist_ok=True)
-    handlers = [logging.StreamHandler(sys.stdout)]
-    try:
-        from logging.handlers import RotatingFileHandler
-        handlers.append(
-            RotatingFileHandler(
-                settings.log_file,
-                maxBytes=10 * 1024 * 1024,
-                backupCount=5,
-                encoding="utf-8",
-            )
-        )
-    except Exception:
-        pass
-    logging.basicConfig(
-        level=getattr(logging, settings.log_level, logging.INFO),
-        format="%(asctime)s %(levelname)-8s %(name)s — %(message)s",
-        handlers=handlers,
-    )
-
-setup_logging()
-
-async def ensure_admin_user():
-    """Ensure admin user exists in the database"""
-    from app.models.base import User
-    import sqlite3
-    
-    # 🔧 DIRECT DATABASE FIX - bypass all foreign key issues
-    conn = sqlite3.connect('./data/greenpack.db')
-    cursor = conn.cursor()
-    
-    # Create companies table (this is what's missing!)
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS companies (
-            id VARCHAR(36) PRIMARY KEY,
-            name VARCHAR(200)
-        )
-    """)
-    
-    # Insert the placeholder company that your admin user needs
-    placeholder_id = "11111111-1111-1111-1111-111111111111"
-    cursor.execute("""
-        INSERT OR IGNORE INTO companies (id, name) 
-        VALUES (?, 'Default Company')
-    """, (placeholder_id,))
-    
-    # Fix audit_logs - remove the broken foreign key constraint
-    cursor.execute("DROP TABLE IF EXISTS audit_logs")
-    cursor.execute("""
-        CREATE TABLE audit_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            company_id VARCHAR(36),
-            user_id VARCHAR(36),
-            action VARCHAR(100),
-            resource_type VARCHAR(50),
-            resource_id VARCHAR(36),
-            ip_address VARCHAR(45),
-            details TEXT,
-            created_at DATETIME
-        )
-    """)
-    
-    conn.commit()
-    conn.close()
-    
-    # Now create the admin user normally
-    async with AsyncSessionLocal() as db:
-        from sqlalchemy import select
-        result = await db.execute(select(User).where(User.email == "admin@example.com"))
-        admin = result.scalar_one_or_none()
-        
-        if not admin:
-            log.info("Creating default admin user...")
-            admin = User(
-                id=str(uuid.uuid4()),
-                company_id=placeholder_id,
-                email="admin@example.com",
-                password_hash=hash_password("Admin123!"),
-                full_name="Admin User",
-                role="admin",
-                active=True
-            )
-            db.add(admin)
-            await db.commit()
-            log.info("Default admin created: admin@example.com / Admin123!")
-        else:
-            log.info("Admin user already exists.")
-# ── Startup/Shutdown ───────────────────────────────────────────────────────────
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    log.info("=" * 60)
-    log.info(f"Greenpack Pro v{settings.greenpack_version} starting")
-    log.info(f"Database: {settings.db_url[:50]}...")
-    
-    settings.ensure_directories()
-    await init_db()
-    await ensure_admin_user()
-    
-    log.info("=" * 60)
-    yield
-    log.info("Greenpack Pro shutting down")
-
 # ── FastAPI App ────────────────────────────────────────────────────────────────
 app = FastAPI(
     title="Greenpack Pro API",
@@ -139,24 +6,13 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# ✅ FIX 1: PROPER CORS CONFIGURATION (Single source of truth)
+# ✅ CORS - Allow all origins (fix for Netlify + Render)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://green-pack-pro.netlify.app",
-        "https://greenpack-backend.onrender.com",
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "http://localhost:5174",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:3000",
-    ],
-    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1|.*\.netlify\.app|.*\.onrender\.com)(:\d+)?",
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"],
-    max_age=3600,  # Cache preflight requests for 1 hour
 )
 
 # ✅ FIX 2: Remove the custom ForceCORSHeaders middleware (not needed with proper CORS)
