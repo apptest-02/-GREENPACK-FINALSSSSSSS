@@ -212,7 +212,7 @@ class ClientBranding(Base):
 class AuditLog(Base):
     __tablename__ = "audit_logs"
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)  # Changed from BigInteger
     company_id = Column(String(36), ForeignKey("companies.id"))
     user_id = Column(String(36), ForeignKey("users.id"))
     action = Column(String(100), nullable=False)
