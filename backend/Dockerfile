@@ -6,10 +6,10 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy from the backend folder
-COPY backend/requirements.txt .
+# NO "backend/" prefix - files are already in root because of root directory setting
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY backend/ .
+COPY . .
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "10000"]
