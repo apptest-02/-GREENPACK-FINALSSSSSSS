@@ -1,12 +1,18 @@
 FROM python:3.11-slim
 
+# Install Tesseract AND OpenCV dependencies (libGL, libglib, etc.)
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# NO "backend/" prefix - files are already in root because of root directory setting
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
