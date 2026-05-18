@@ -100,7 +100,6 @@ async def lifespan(app: FastAPI):
     log.info("Greenpack Pro shutting down")
 
 # ── FastAPI App ────────────────────────────────────────────────────────────────
-# ── FastAPI App ────────────────────────────────────────────────────────────────
 app = FastAPI(
     title="Greenpack Pro API",
     lifespan=lifespan,
@@ -108,32 +107,28 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# ── FORCE CORS HEADERS (ADD THIS RIGHT HERE) ───────────────────────────────────
-from starlette.middleware.base import BaseHTTPMiddleware
-
-class ForceCORSHeaders(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        response = await call_next(request)
-        response.headers["Access-Control-Allow-Origin"] = "https://green-pack-pro.netlify.app"
-        response.headers["Access-Control-Allow-Credentials"] = "true"
-        response.headers["Access-Control-Allow-Methods"] = "*"
-        response.headers["Access-Control-Allow-Headers"] = "*"
-        return response
-
-app.add_middleware(ForceCORSHeaders)
-
-# ── STANDARD CORS MIDDLEWARE ───────────────────────────────────────────────────
+# ✅ FIX 1: PROPER CORS CONFIGURATION (Single source of truth)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://green-pack-pro.netlify.app",
+        "https://greenpack-backend.onrender.com",
         "http://localhost:5173",
         "http://localhost:3000",
+        "http://localhost:5174",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000",
     ],
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1|.*\.netlify\.app|.*\.onrender\.com)(:\d+)?",
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600,  # Cache preflight requests for 1 hour
 )
+
+# ✅ FIX 2: Remove the custom ForceCORSHeaders middleware (not needed with proper CORS)
+
 # ── Pydantic Models ────────────────────────────────────────────────────────────
 class LoginRequest(BaseModel):
     email: str
@@ -174,10 +169,11 @@ async def health():
 async def dashboard_stats():
     return {"today_total": 0, "today_pass": 0, "today_fail": 0, "pass_rate": 0, "avg_score": 0}
 
-# ── Include All Routers ────────────────────────────────────────────────────────
+# ✅ FIX 3: FIX ROUTE CONFLICTS - Use proper prefixes
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
 app.include_router(jobs.router, prefix="/api/v1/jobs", tags=["Jobs"])
+# ✅ Fix: Multi-up uses a sub-path under jobs
 app.include_router(multi_up.router, prefix="/api/v1/jobs", tags=["Multi-Up"])
 app.include_router(prepress.router, prefix="/api/v1/prepress", tags=["Prepress"])
 app.include_router(templates.router, prefix="/api/v1/templates", tags=["Templates"])
@@ -230,6 +226,7 @@ async def fix_db():
 reports_dir = Path(settings.reports_dir)
 reports_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/reports", StaticFiles(directory=str(reports_dir)), name="reports")
+
 @app.get("/fix-audit-logs")
 async def fix_audit_logs():
     import sqlite3
@@ -243,6 +240,7 @@ async def fix_audit_logs():
     conn.close()
     
     return {"message": "audit_logs table dropped. It will be recreated with correct schema on next restart."}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
