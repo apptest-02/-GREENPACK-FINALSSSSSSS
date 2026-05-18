@@ -1,40 +1,21 @@
 """
-Greenpack Pro — OCR Service
-Dual OCR engine: EasyOCR (primary) + Tesseract (secondary)
-Singleton pattern to load model once and reuse.
+Greenpack Pro — OCR Service (Memory Optimized)
+Tesseract only — removes EasyOCR to save 1.5GB RAM for Render free tier
 """
 import difflib
 import logging
-import sys
+import asyncio
 from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
 import numpy as np
+from PIL import Image
 
 from app.config import get_settings
 
 log = logging.getLogger(__name__)
 settings = get_settings()
-
-
-@lru_cache(maxsize=1)
-def get_ocr_reader():
-    """
-    Load EasyOCR model ONCE. Cached singleton — never create multiple instances.
-    First load: ~8-12 seconds, ~2GB RAM. Subsequent calls: instant.
-    """
-    log.info("Loading EasyOCR model (first time — this takes ~10 seconds)...")
-    import easyocr
-    reader = easyocr.Reader(
-        ["en"],
-        gpu=False,
-        model_storage_directory=settings.easyocr_model_dir,
-        download_enabled=settings.easyocr_download_enabled,
-        verbose=False,
-    )
-    log.info("EasyOCR model loaded successfully")
-    return reader
 
 
 def _configure_tesseract():
@@ -51,54 +32,50 @@ def _configure_tesseract():
         return None
 
 
-def run_dual_ocr(master_path: str, scan_path: str) -> dict:
+async def run_dual_ocr(master_path: str, scan_path: str) -> dict:
     """
-    Run EasyOCR on both master and scan images.
+    Run Tesseract OCR on both master and scan images.
     Returns dict with extracted text regions from both images.
     """
-    try:
-        reader = get_ocr_reader()
-    except Exception as e:
-        log.error(f"Cannot load OCR model: {e}")
+    pytesseract = _configure_tesseract()
+    if pytesseract is None:
+        log.error("Tesseract not available")
         return {"master_regions": [], "scan_regions": [], "errors": [], "engine": "none"}
 
     min_conf = settings.ocr_min_confidence
 
     def extract_regions(image_path: str) -> list[dict]:
         try:
-            results = reader.readtext(
-                image_path,
-                detail=1,
-                paragraph=False,
-                batch_size=4,
-            )
+            image = Image.open(image_path)
+            data = pytesseract.image_to_data(image, lang="eng", output_type=pytesseract.Output.DICT)
+            
             regions = []
-            for bbox, text, conf in results:
-                if conf >= min_conf and text.strip():
-                    # Normalize bbox to dict format
-                    x_coords = [p[0] for p in bbox]
-                    y_coords = [p[1] for p in bbox]
+            for i, text in enumerate(data['text']):
+                if text.strip() and float(data['conf'][i]) / 100 >= min_conf:
                     regions.append({
                         "text": text.strip(),
-                        "confidence": round(float(conf), 3),
+                        "confidence": round(float(data['conf'][i]) / 100, 3),
                         "bbox": {
-                            "x": int(min(x_coords)),
-                            "y": int(min(y_coords)),
-                            "w": int(max(x_coords) - min(x_coords)),
-                            "h": int(max(y_coords) - min(y_coords)),
+                            "x": data['left'][i],
+                            "y": data['top'][i],
+                            "w": data['width'][i],
+                            "h": data['height'][i],
                         },
                     })
             return regions
         except Exception as e:
-            log.error(f"EasyOCR extraction failed for {image_path}: {e}")
+            log.error(f"Tesseract extraction failed for {image_path}: {e}")
             return []
 
-    master_regions = extract_regions(master_path)
-    scan_regions = extract_regions(scan_path)
+    # Run both extractions in parallel
+    master_regions, scan_regions = await asyncio.gather(
+        asyncio.get_event_loop().run_in_executor(None, extract_regions, master_path),
+        asyncio.get_event_loop().run_in_executor(None, extract_regions, scan_path),
+    )
 
     log.info(
         f"OCR complete: master={len(master_regions)} regions, "
-        f"scan={len(scan_regions)} regions"
+        f"scan={len(scan_regions)} regions (Tesseract only)"
     )
 
     return {
@@ -106,7 +83,7 @@ def run_dual_ocr(master_path: str, scan_path: str) -> dict:
         "scan_regions": scan_regions,
         "errors": [],
         "timeout": False,
-        "engine": "easyocr",
+        "engine": "tesseract",  # Changed from easyocr
     }
 
 
