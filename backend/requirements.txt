@@ -1,5 +1,5 @@
-# ── Greenpack Pro Backend — requirements.txt ──────────────────────────────────
-# Install: pip install -r requirements.txt
+# ── Greenpack Pro Backend — requirements.txt (Memory Optimized) ──────────────
+# Removed EasyOCR to save 1.5GB RAM for Render free tier
 
 # Web Framework
 fastapi==0.111.0
@@ -15,8 +15,6 @@ email-validator==2.1.1
 sqlalchemy==2.0.30
 aiosqlite==0.20.0
 alembic==1.13.1
-# Mode B only:
-# asyncpg==0.29.0
 
 # Authentication
 python-jose[cryptography]==3.3.0
@@ -34,8 +32,7 @@ scipy==1.13.0
 pdf2image==1.17.0
 pypdfium2==4.28.0
 
-# OCR
-easyocr==1.7.1
+# OCR - Tesseract only (Lightweight)
 pytesseract==0.3.10
 
 # Barcode
@@ -48,15 +45,11 @@ colormath==3.0.0
 reportlab==4.1.0
 openpyxl==3.1.2
 
-# HTTP Client (scanner + webhooks)
+# HTTP Client
 httpx==0.27.0
 
 # Scanner Integration
 twain-wia-sane-scanner==2.0.2
-# pywin32==306 (Windows only - installed separately)
-
-# Notifications (Windows)
-# win10toast==0.9 (Windows only)
 
 # Utilities
 python-dotenv==1.0.1
