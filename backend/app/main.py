@@ -100,6 +100,7 @@ async def lifespan(app: FastAPI):
     log.info("Greenpack Pro shutting down")
 
 # ── FastAPI App ────────────────────────────────────────────────────────────────
+# ── FastAPI App ────────────────────────────────────────────────────────────────
 app = FastAPI(
     title="Greenpack Pro API",
     lifespan=lifespan,
@@ -107,10 +108,25 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+# ── FORCE CORS HEADERS (ADD THIS RIGHT HERE) ───────────────────────────────────
+from starlette.middleware.base import BaseHTTPMiddleware
+
+class ForceCORSHeaders(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["Access-Control-Allow-Origin"] = "https://green-pack-pro.netlify.app"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Methods"] = "*"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        return response
+
+app.add_middleware(ForceCORSHeaders)
+
+# ── STANDARD CORS MIDDLEWARE ───────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://green-pack-pro.netlify.app",  # <-- ADD YOUR NETLIFY URL
+        "https://green-pack-pro.netlify.app",
         "http://localhost:5173",
         "http://localhost:3000",
     ],
@@ -118,7 +134,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 # ── Pydantic Models ────────────────────────────────────────────────────────────
 class LoginRequest(BaseModel):
     email: str
